@@ -15,7 +15,7 @@ class Reservation extends Model
 
     public function session()
     {
-        return $this->belongsTo(Session::class);
+        return $this->belongsTo(Screening::class);
     }
 
     public function seat()
