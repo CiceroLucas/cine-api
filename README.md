@@ -1,58 +1,53 @@
 <p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+# Cine API - Sistema de Reservas de Cinema
 
-## About Laravel
+Uma API RESTful desenvolvida em **Laravel** para gestão de bilheteira e reservas de assentos em salas de cinema. O projeto foca-se na resolução de problemas clássicos de concorrência (*double booking*) e no ciclo de vida de uma reserva temporária (carrinho de compras).
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Tecnologias Utilizadas
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+* **PHP 8.x**
+* **Laravel 13**
+* **SQLite** (Configurado por padrão para facilitar o setup, mas totalmente compatível com MySQL/PostgreSQL)
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Escolhas de Arquitetura e Padrões
 
-## Learning Laravel
+Este projeto foi construído seguindo os princípios de um design relacional sólido e boas práticas de desenvolvimento backend:
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+1. **Prevenção de Race Conditions (Concorrência):**
+   * **Problema:** Num sistema de bilheteira, dois utilizadores podem tentar comprar o mesmo lugar exatamente no mesmo milissegundo.
+   * **Solução:** Utilização de **Database Transactions** (`DB::transaction`) combinadas com **Pessimistic Locking** (`lockForUpdate()`). Isso garante a atomicidade da operação; a primeira requisição tranca a linha do banco de dados até ser concluída, forçando a segunda requisição a aguardar e, consequentemente, a falhar ao verificar que o assento já não está disponível.
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+2. **Otimização de Consultas (N+1 Queries):**
+   * **Problema:** Renderizar o mapa de uma sala com 100 lugares poderia gerar dezenas de consultas ao banco de dados para verificar o estado de cada assento individualmente.
+   * **Solução:** Uso de **Eager Loading** (`with()`) para carregar as relações e manipulação de coleções em memória usando `keyBy()`. A API faz uma única consulta para trazer as reservas ativas e mapeia o estado dos assentos em tempo constante $O(1)$, garantindo tempos de resposta ultrarrápidos.
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+3. **Ciclo de Vida Autónomo (Task Scheduling):**
+   * Para evitar que assentos fiquem presos indefinidamente caso o utilizador abandone a compra, foi implementado um **Console Command** customizado (`reservations:clear-expired`).
+   * Este comando é gerido pelo **Laravel Task Scheduler**, rodando em background a cada minuto para libertar assentos "pendentes" cujo tempo limite de 10 minutos tenha expirado.
 
-## Agentic Development
+## Lógica de Negócio
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+O fluxo de compra de um bilhete segue um modelo de reserva temporária em 3 passos:
 
+1. **Visualização do Mapa (`GET /api/sessoes/{id}/assentos`)**
+   * O cliente requisita o mapa de assentos de uma sessão.
+   * A API cruza os assentos físicos da sala com as reservas ativas daquela sessão.
+   * Retorna uma matriz onde cada assento tem um estado dinâmico: `available` (livre), `pending` (no carrinho de alguém) ou `confirmed` (vendido).
+
+2. **Bloqueio Temporário (`POST /api/reservar`)**
+   * O utilizador seleciona um assento.
+   * A API valida se o assento pertence à sala correta e se está livre.
+   * Se sim, cria uma reserva com estado `pending` e uma data de expiração (`expires_at`) para dali a 10 minutos. O assento passa a aparecer como indisponível para os outros clientes.
+
+3. **Confirmação ou Expiração (`POST /api/reservas/{id}/confirmar`)**
+   * **Caminho Feliz:** O utilizador efetua o pagamento dentro dos 10 minutos. A API muda o estado da reserva para `confirmed` e anula a data de expiração. O assento é garantido permanentemente.
+   * **Abandono:** Se o tempo passar sem confirmação, o utilizador recebe um erro ao tentar pagar. Paralelamente, o *Scheduler* do servidor identifica a expiração, altera o estado para `cancelled` e o assento volta a ficar `available`.
+
+## Como Executar o Projeto Localmente
+
+**1. Clone o repositório e instale as dependências:**
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
-```
-
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
-
-## Contributing
-
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+git clone https://github.com/CiceroLucas/cine-api.git
+cd cine-api
+composer install
