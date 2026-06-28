@@ -68,4 +68,42 @@ class ReservationController extends Controller
             ], $e->getCode() == 422 ? 422 : 500);
         }
     }
+
+    public function confirm($id)
+    {
+        $reservation = Reservation::find($id);
+
+        if(!$reservation)
+        {
+            return response()->json(['error' => 'Reserva não encontrada.', 404]);
+        }
+
+        if($reservation->status === 'confirmed')
+        {
+            return response()->json(['error' => 'Esta reserva já foi paga e confirmada.', 422]);
+        }
+
+        if($reservation->status === 'canceled')
+        {
+            return response()->json(['error' => 'Esta reserva foi cancelada e não pode ser paga.', 422]);
+        }
+
+        if($reservation->expire_at && $reservation->expires_at->isPast())
+        {
+            $reservation->update(['status' => 'cancelled']);
+
+            return response()->json(['error' => 'O tempo limite de 10 minutos para o pagamento expirou', 422]);
+        }
+
+        $reservation->update([
+            'status' => 'confirmed',
+            'expires_at' => null,
+        ]);
+
+        return response()->json([
+            'message' => 'Pagamento confirmado com sucesso! o Seu lugar esta garantido.',
+            'data' => $reservation
+        ], 200);
+
+    }
 }

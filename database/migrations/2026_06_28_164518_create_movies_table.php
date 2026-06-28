@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('title');
             $table->text('description')->nullable();
-            $table->integer('duraction_minutes');
+            $table->integer('duration_minutes');
             $table->timestamps();
         });
     }

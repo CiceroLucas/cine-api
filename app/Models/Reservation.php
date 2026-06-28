@@ -2,18 +2,19 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Query\Builder;
+
 
 class Reservation extends Model
 {
-    protected $fillable = ['session_id', 'seat_id', 'user_id', 'status', 'expires_at'];
+    protected $fillable = ['screening_id', 'seat_id', 'user_id', 'status', 'expires_at'];
 
     protected $casts = [
         'expires_at' => 'datetime',
     ];
 
-    public function session()
+    public function screenings()
     {
         return $this->belongsTo(Screening::class);
     }
