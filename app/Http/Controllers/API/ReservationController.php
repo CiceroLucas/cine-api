@@ -106,4 +106,45 @@ class ReservationController extends Controller
         ], 200);
 
     }
+
+    public function getSeats($screeningId)
+    {
+        $screening = Screening::with(['movie', 'room.seats'])->find($screeningId);
+
+        if(!$screening)
+        {
+            return response()->json(['error' => 'Sessão não encontrada.', 404]);
+        }
+
+        $activeReservation = Reservation::where('screening_id', $screeningId)
+            ->active()
+            ->get()
+            ->keyBy('seat_id');
+
+        $seatsWithStatus = $screening->room->seats->map(function ($seat) use ($activeReservation)
+        {
+            $status = 'available';
+            
+            if($activeReservation->has($seat->id))
+            {
+                $status = $activeReservation->get($seat->id)->status;
+            }
+
+            return [
+                'id'     => $seat->id,
+                'row'    => $seat->row,
+                'number' => $seat->number,
+                'status' => $status,
+            ];
+        });
+
+        return response()->json([
+            'session_id' => $screening->id,
+            'movie'      => $screening->movie->title,
+            'room'       => $screening->room->name,
+            'start_time' => $screening->start_time->toIso8601String(),
+            'price'      => $screening->price,
+            'seats'      => $seatsWithStatus
+        ], 200);
+    }
 }
