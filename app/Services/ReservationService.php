@@ -47,12 +47,16 @@ class ReservationService
     /**
      * Lida com a lógica de confirmação do pagamento.
      */
-    public function confirmReservation(int $id): Reservation
+    public function confirmReservation(int $id, int $userId): Reservation
     {
         $reservation = Reservation::find($id);
 
         if (!$reservation) {
             throw new Exception("Reserva não encontrada.", 404);
+        }
+
+        if ($reservation->user_id !== $userId) {
+            throw new Exception("Esta reserva pertence a outro usuário.", 403);
         }
 
         if ($reservation->status === 'confirmed') {

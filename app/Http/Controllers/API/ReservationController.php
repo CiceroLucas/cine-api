@@ -22,7 +22,6 @@ class ReservationController extends Controller
         $validator = Validator::make($request->all(), [
             'screening_id' => 'required|exists:screenings,id',
             'seat_id'      => 'required|exists:seats,id',
-            'user_id'      => 'required|exists:users,id', 
         ]);
 
         if ($validator->fails()) {
@@ -33,7 +32,7 @@ class ReservationController extends Controller
             $reservation = $this->reservationService->reserveSeat(
                 $request->screening_id,
                 $request->seat_id,
-                $request->user_id
+                $request->user()->id
             );
 
             return response()->json([
@@ -47,10 +46,10 @@ class ReservationController extends Controller
         }
     }
 
-    public function confirm($id)
+    public function confirm(Request $request, $id)
     {
         try {
-            $reservation = $this->reservationService->confirmReservation($id);
+            $reservation = $this->reservationService->confirmReservation($id, $request->user()->id);
 
             return response()->json([
                 'message' => 'Pagamento confirmado com sucesso! O seu lugar está garantido.',

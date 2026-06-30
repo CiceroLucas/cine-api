@@ -31,10 +31,12 @@ class Reservation extends Model
 
     public function scopeActive(Builder $query): void
     {
-        $query->where('status', 'confirmed')
-              ->orWhere(function ($q) {
-                  $q->where('status', 'pending')
-                    ->where('expires_at', '>', now());
-              });
+        $query->where(function (Builder $query): void {
+            $query->where('status', 'confirmed')
+                ->orWhere(function (Builder $query): void {
+                    $query->where('status', 'pending')
+                        ->where('expires_at', '>', now());
+                });
+        });
     }
 }
