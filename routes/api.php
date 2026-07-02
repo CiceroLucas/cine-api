@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\API\AuthController;
+use App\Http\Controllers\API\MovieController;
 use App\Http\Controllers\API\ReservationController;
 use Illuminate\Support\Facades\Route;
 
@@ -14,4 +15,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/reservar', [ReservationController::class, 'reserve']);
     Route::post('/reservas/{id}/confirmar', [ReservationController::class, 'confirm']);
+
+    Route::apiResource('movies', MovieController::class);
 });
